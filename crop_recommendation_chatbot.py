@@ -11,50 +11,50 @@ st.title("Interactive Crop Recommendation Chatbot")
 if "chat_history" not in st.session_state:
     st.session_state["chat_history"] = []
 
-# File upload handling
+# Step 1: Upload Your Dataset
 st.write("### Step 1: Upload Your Dataset")
 uploaded_file = st.file_uploader("Upload your agricultural CSV file (with features like soil type, temperature, crop)", type="csv")
 
-# Save uploaded file in session state
+# Check if a file is uploaded and can be read
 if uploaded_file is not None:
-    st.session_state["uploaded_file"] = uploaded_file
+    try:
+        df = pd.read_csv(uploaded_file)
+        
+        # Verify the dataset has content and columns
+        if df.empty:
+            st.write("Uploaded file is empty. Please upload a valid CSV file.")
+        else:
+            # Save the DataFrame in session state
+            st.session_state["df"] = df
+            st.write("### Dataset Preview")
+            st.write(df.head())
+    except Exception as e:
+        st.write(f"Error reading file: {e}. Please upload a valid CSV.")
+else:
+    st.write("Please upload a dataset to continue.")
 
 # Chat Interface
-st.write("### Step 2: Chat with the Crop Recommendation Bot")
-
-# Check if a file is uploaded before showing the chat
-if "uploaded_file" not in st.session_state:
-    st.write("Please upload a dataset to start the chat.")
-else:
-    # Load the dataset and display preview
-    df = pd.read_csv(st.session_state["uploaded_file"])
-    st.write("### Dataset Preview")
-    st.write(df.head())
-
+if "df" in st.session_state:
     # Function to append chat messages
     def append_chat(user_message, bot_response):
         st.session_state["chat_history"].append({"user": user_message, "bot": bot_response})
 
-    # User Input
     user_input = st.text_input("You:", key="user_input")
 
     # Chatbot Responses
     if user_input:
-        # Greeting and basic responses
         if "hello" in user_input.lower():
             bot_response = "Hello! Your dataset is loaded. You can ask me to recommend a crop."
             append_chat(user_input, bot_response)
 
-        # Check if dataset includes target column 'crop'
-        elif 'crop' not in df.columns:
+        elif 'crop' not in st.session_state["df"].columns:
             bot_response = "Your dataset must include a 'crop' column as the target variable."
             append_chat(user_input, bot_response)
 
-        # Proceed with model training and recommendation
         elif "recommend" in user_input.lower() or "crop" in user_input.lower():
-            feature_columns = [col for col in df.columns if col != 'crop']
-            X = df[feature_columns]
-            y = df['crop']
+            feature_columns = [col for col in st.session_state["df"].columns if col != 'crop']
+            X = st.session_state["df"][feature_columns]
+            y = st.session_state["df"]['crop']
 
             # Train a model
             X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
@@ -69,7 +69,7 @@ else:
             # Prompt user for each feature
             input_data = {}
             for col in feature_columns:
-                input_data[col] = st.number_input(f"Enter {col} value", float(df[col].min()), float(df[col].max()))
+                input_data[col] = st.number_input(f"Enter {col} value", float(X[col].min()), float(X[col].max()))
 
             # Get Prediction
             if st.button("Get Recommendation"):
