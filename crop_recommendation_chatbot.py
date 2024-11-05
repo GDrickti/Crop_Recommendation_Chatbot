@@ -4,7 +4,6 @@ import numpy as np
 import joblib
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import LabelEncoder
 import matplotlib.pyplot as plt
 import seaborn as sns
 
@@ -36,7 +35,7 @@ if uploaded_file is not None:
             st.write("### Data Analysis")
             st.write(f"The dataset contains {df.shape[0]} rows and {df.shape[1]} columns.")
             st.write("#### Summary Statistics")
-            st.write(df.describe())
+            st.write(df.describe(include='all'))
 
             # Visualize Distribution of the Target Variable
             st.write("#### Distribution of Crops")
@@ -53,12 +52,6 @@ if uploaded_file is not None:
             sns.heatmap(correlation_matrix, annot=True, fmt=".2f", cmap="coolwarm")
             plt.title('Correlation Matrix')
             st.pyplot(plt)
-
-            # Encode categorical features, if any
-            if df['crop'].dtype == 'object':
-                label_encoder = LabelEncoder()
-                df['crop'] = label_encoder.fit_transform(df['crop'])
-                st.session_state["label_encoder"] = label_encoder  # Save the encoder for later use
 
             # Feature Selection for Prediction
             feature_columns = [col for col in df.columns if col != 'crop']
@@ -103,21 +96,24 @@ if "df" in st.session_state:
             bot_response = "Model trained! Now, enter data for a crop recommendation."
             append_chat(user_input, bot_response)
 
-            # Prompt user for each feature
+            # Input data dictionary
             input_data = {}
+
+            # Prompt user for each feature
             for col in feature_columns:
-                if df[col].dtype == 'object':  # If the column is categorical
-                    input_data[col] = st.selectbox(f"Select {col}", options=df[col].unique())
-                else:  # For numerical columns
+                if pd.api.types.is_numeric_dtype(df[col]):
+                    # Numeric input for numeric columns
                     input_data[col] = st.number_input(f"Enter {col} value", float(X[col].min()), float(X[col].max()))
+                else:
+                    # Select input for categorical columns
+                    unique_values = df[col].unique()
+                    input_data[col] = st.selectbox(f"Select {col} value", unique_values)
 
             # Get Prediction
             if st.button("Get Recommendation"):
                 input_df = pd.DataFrame([input_data])
-                input_df['crop'] = st.session_state["label_encoder"].transform([input_df['crop'].values[0]])  # Encode if necessary
                 prediction = model.predict(input_df)
-                predicted_crop = st.session_state["label_encoder"].inverse_transform(prediction)  # Decode back to original
-                bot_response = f"Recommended Crop: {predicted_crop[0]}"
+                bot_response = f"Recommended Crop: {prediction[0]}"
                 append_chat(user_input, bot_response)
 
         elif "insight" in user_input.lower():
