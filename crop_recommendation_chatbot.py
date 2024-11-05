@@ -5,7 +5,7 @@ import joblib
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split
 
-st.title("Interactive Crop Recommendation Chatbot")
+st.title("Interactive Crop Recommendation Chatbot: AGRINEXUS")
 
 # Chat History
 if "chat_history" not in st.session_state:
