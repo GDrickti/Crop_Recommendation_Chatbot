@@ -8,7 +8,7 @@ from sklearn.preprocessing import LabelEncoder
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-st.title("Interactive Crop Recommendation Chatbot")
+st.title("Interactive Crop Recommendation Chatbot: AGRINEXUS")
 
 # Chat History
 if "chat_history" not in st.session_state:
