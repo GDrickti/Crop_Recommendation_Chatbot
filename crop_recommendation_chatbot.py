@@ -2,7 +2,8 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import joblib
-from sklearn.ensemble import RandomForestClassifierimport streamlit as st
+from sklearn.ensemble import RandomForestClassifier
+import streamlit as st
 import pandas as pd
 import numpy as np
 import joblib
