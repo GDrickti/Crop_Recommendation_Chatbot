@@ -4,7 +4,7 @@ import numpy as np
 import joblib
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import LabelEncoder
+from sklearn.preprocessing import LabelEncoder, OneHotEncoder
 import matplotlib.pyplot as plt
 import seaborn as sns
 
@@ -16,7 +16,7 @@ if "chat_history" not in st.session_state:
 
 # Step 1: Upload Your Dataset
 st.write("### Step 1: Upload Your Dataset")
-uploaded_file = st.file_uploader("Upload your agricultural CSV file (with features like soil type, temperature, crop)", type="csv", key="file_uploader")
+uploaded_file = st.file_uploader("Upload your agricultural CSV file (with features like soil type, temperature, crop)", type="csv", key="unique_uploader_key")
 
 # Check if a file is uploaded and can be read
 if uploaded_file is not None:
@@ -96,15 +96,20 @@ if "df" in st.session_state:
             append_chat(user_input, bot_response)
 
         elif "recommend" in user_input.lower() or "crop" in user_input.lower():
+            # Identify feature columns (excluding the target 'crop' column)
             feature_columns = [col for col in st.session_state["df"].columns if col != 'crop']
             
-            # Encode categorical features
+            # Encode categorical features (excluding the target column)
             df_encoded = pd.get_dummies(st.session_state["df"], columns=categorical_cols, drop_first=True)
-            X = df_encoded.drop('crop', axis=1)
-            y = df_encoded['crop']
+            X = df_encoded.drop('crop', axis=1, errors='ignore')  # Drop only if 'crop' is present
+            y = st.session_state["df"]['crop']
 
+            # Encode the target column if necessary
+            label_encoder = LabelEncoder()
+            y_encoded = label_encoder.fit_transform(y)
+            
             # Train a model
-            X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+            X_train, X_test, y_train, y_test = train_test_split(X, y_encoded, test_size=0.2, random_state=42)
             model = RandomForestClassifier()
             model.fit(X_train, y_train)
             joblib.dump(model, 'user_crop_model.pkl')
@@ -121,7 +126,8 @@ if "df" in st.session_state:
             # Get Prediction
             if st.button("Get Recommendation"):
                 input_df = pd.DataFrame([input_data])
-                prediction = model.predict(input_df)
+                prediction_encoded = model.predict(input_df)
+                prediction = label_encoder.inverse_transform(prediction_encoded)
                 bot_response = f"Recommended Crop: {prediction[0]}"
                 append_chat(user_input, bot_response)
 
