@@ -4,6 +4,7 @@ import numpy as np
 import joblib
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import LabelEncoder
 import matplotlib.pyplot as plt
 import seaborn as sns
 
@@ -53,6 +54,12 @@ if uploaded_file is not None:
             plt.title('Correlation Matrix')
             st.pyplot(plt)
 
+            # Encode categorical features, if any
+            if df['crop'].dtype == 'object':
+                label_encoder = LabelEncoder()
+                df['crop'] = label_encoder.fit_transform(df['crop'])
+                st.session_state["label_encoder"] = label_encoder  # Save the encoder for later use
+
             # Feature Selection for Prediction
             feature_columns = [col for col in df.columns if col != 'crop']
             st.write("### Selected Features for Prediction")
@@ -99,13 +106,18 @@ if "df" in st.session_state:
             # Prompt user for each feature
             input_data = {}
             for col in feature_columns:
-                input_data[col] = st.number_input(f"Enter {col} value", float(X[col].min()), float(X[col].max()))
+                if df[col].dtype == 'object':  # If the column is categorical
+                    input_data[col] = st.selectbox(f"Select {col}", options=df[col].unique())
+                else:  # For numerical columns
+                    input_data[col] = st.number_input(f"Enter {col} value", float(X[col].min()), float(X[col].max()))
 
             # Get Prediction
             if st.button("Get Recommendation"):
                 input_df = pd.DataFrame([input_data])
+                input_df['crop'] = st.session_state["label_encoder"].transform([input_df['crop'].values[0]])  # Encode if necessary
                 prediction = model.predict(input_df)
-                bot_response = f"Recommended Crop: {prediction[0]}"
+                predicted_crop = st.session_state["label_encoder"].inverse_transform(prediction)  # Decode back to original
+                bot_response = f"Recommended Crop: {predicted_crop[0]}"
                 append_chat(user_input, bot_response)
 
         elif "insight" in user_input.lower():
