@@ -61,9 +61,12 @@ if "df" in st.session_state:
             append_chat(user_input, bot_response)
 
         elif "data description" in user_input.lower():
-            bot_response = "Here's the description of each column in the dataset."
+            bot_response = "Here's the description of the dataset."
             append_chat(user_input, bot_response)
             st.write("### Data Description")
+            st.write(f"**Number of Rows:** {st.session_state['df'].shape[0]}")
+            st.write(f"**Number of Columns:** {st.session_state['df'].shape[1]}")
+            st.write("**Column Data Types:**")
             st.write(st.session_state["df"].dtypes)
 
         elif "data summary" in user_input.lower():
