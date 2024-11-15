@@ -8,7 +8,7 @@ from sklearn.preprocessing import LabelEncoder
 import matplotlib.pyplot as plt
 import seaborn as sns
 from datetime import datetime
-from sklearn.metrics import accuracy_score, plot_confusion_matrix
+from sklearn.metrics import accuracy_score, ConfusionMatrixDisplay
 
 st.title("Interactive Crop Recommendation Chatbot")
 
@@ -142,7 +142,8 @@ if "df" in st.session_state:
                 
                 st.write("### Confusion Matrix")
                 fig, ax = plt.subplots()
-                plot_confusion_matrix(st.session_state["model"], X_test, y_test, display_labels=label_encoder.classes_, cmap="Blues", ax=ax)
+                disp = ConfusionMatrixDisplay.from_estimator(st.session_state["model"], X_test, y_test, display_labels=label_encoder.classes_, cmap="Blues", ax=ax)
+                disp.plot(ax=ax)
                 st.pyplot(fig)
             else:
                 bot_response = "The model has not been trained yet. Please train the model first by asking for a crop recommendation."
