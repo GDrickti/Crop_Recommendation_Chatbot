@@ -60,6 +60,34 @@ if "df" in st.session_state:
             bot_response = f"{greeting}! Your dataset is loaded. How can I assist you? You can ask for crop recommendations or data insights."
             append_chat(user_input, bot_response)
 
+        elif "data description" in user_input.lower():
+            bot_response = "Here's the description of each column in the dataset."
+            append_chat(user_input, bot_response)
+            st.write("### Data Description")
+            st.write(st.session_state["df"].dtypes)
+
+        elif "data summary" in user_input.lower():
+            bot_response = "Here's the summary of the dataset."
+            append_chat(user_input, bot_response)
+            st.write("### Dataset Summary")
+            st.write(st.session_state["df"].describe(include='all'))
+
+        elif "data analysis" in user_input.lower():
+            bot_response = "Performing data analysis for each column..."
+            append_chat(user_input, bot_response)
+            for column in st.session_state["df"].columns:
+                st.write(f"#### Analysis of `{column}`")
+                if pd.api.types.is_numeric_dtype(st.session_state["df"][column]):
+                    st.write(st.session_state["df"][column].describe())
+                    st.write("Distribution")
+                    fig, ax = plt.subplots()
+                    sns.histplot(st.session_state["df"][column], kde=True, ax=ax)
+                    st.pyplot(fig)
+                elif pd.api.types.is_categorical_dtype(st.session_state["df"][column]) or st.session_state["df"][column].dtype == object:
+                    st.write(st.session_state["df"][column].value_counts())
+                    st.write("Bar Chart")
+                    st.bar_chart(st.session_state["df"][column].value_counts())
+
         elif "recommend" in user_input.lower():
             # Extract features and target
             feature_columns = [col for col in st.session_state["df"].columns if col != 'crop']
@@ -125,14 +153,8 @@ if "df" in st.session_state:
                 bot_response = "There are no numerical features to compute correlations."
                 append_chat(user_input, bot_response)
 
-        elif "data summary" in user_input.lower():
-            bot_response = "Here's the summary of the dataset."
-            append_chat(user_input, bot_response)
-            st.write("### Dataset Summary")
-            st.write(st.session_state["df"].describe(include='all'))
-
         else:
-            bot_response = "I'm sorry, I didn't understand that. You can ask about top crops, soil types, correlations, or for a crop recommendation."
+            bot_response = "I'm sorry, I didn't understand that. You can ask about data description, data summary, data analysis, top crops, soil types, correlations, or for a crop recommendation."
             append_chat(user_input, bot_response)
 
     # Display Chat History
