@@ -8,8 +8,9 @@ from sklearn.preprocessing import LabelEncoder
 import matplotlib.pyplot as plt
 import seaborn as sns
 from datetime import datetime
+from sklearn.metrics import accuracy_score, plot_confusion_matrix
 
-st.title("Interactive Crop Recommendation Chatbot:AGRINEXUS")
+st.title("Interactive Crop Recommendation Chatbot")
 
 # Chat History
 if "chat_history" not in st.session_state:
@@ -61,12 +62,12 @@ if "df" in st.session_state:
             append_chat(user_input, bot_response)
 
         elif "data description" in user_input.lower():
-            bot_response = "Here's the description of the dataset."
+            num_rows, num_cols = st.session_state["df"].shape
+            bot_response = f"Dataset Description:\n- Number of rows: {num_rows}\n- Number of columns: {num_cols}"
             append_chat(user_input, bot_response)
             st.write("### Data Description")
-            st.write(f"**Number of Rows:** {st.session_state['df'].shape[0]}")
-            st.write(f"**Number of Columns:** {st.session_state['df'].shape[1]}")
-            st.write("**Column Data Types:**")
+            st.write(f"Number of rows: {num_rows}")
+            st.write(f"Number of columns: {num_cols}")
             st.write(st.session_state["df"].dtypes)
 
         elif "data summary" in user_input.lower():
@@ -106,9 +107,15 @@ if "df" in st.session_state:
             X_train, X_test, y_train, y_test = train_test_split(X, y_encoded, test_size=0.2, random_state=42)
             model = RandomForestClassifier()
             model.fit(X_train, y_train)
-            joblib.dump(model, 'user_crop_model.pkl')
+            y_pred = model.predict(X_test)
 
-            bot_response = "Model trained successfully! Enter feature values for prediction."
+            # Model accuracy
+            accuracy = accuracy_score(y_test, y_pred)
+            st.session_state["model_accuracy"] = accuracy
+            st.session_state["model"] = model
+            st.session_state["label_encoder"] = label_encoder
+
+            bot_response = f"Model trained successfully with an accuracy of {accuracy:.2f}! Enter feature values for prediction."
             append_chat(user_input, bot_response)
 
             # Input values for prediction
@@ -122,6 +129,24 @@ if "df" in st.session_state:
                 prediction = label_encoder.inverse_transform(prediction_encoded)
                 bot_response = f"Recommended Crop: {prediction[0]}"
                 append_chat("Prediction Input Submitted", bot_response)
+
+        elif "model accuracy" in user_input.lower():
+            if "model_accuracy" in st.session_state:
+                accuracy = st.session_state["model_accuracy"]
+                bot_response = f"The model accuracy is {accuracy:.2f}"
+                append_chat(user_input, bot_response)
+                
+                # Displaying Model Accuracy and Confusion Matrix
+                st.write("### Model Accuracy")
+                st.write(f"Accuracy: {accuracy:.2f}")
+                
+                st.write("### Confusion Matrix")
+                fig, ax = plt.subplots()
+                plot_confusion_matrix(st.session_state["model"], X_test, y_test, display_labels=label_encoder.classes_, cmap="Blues", ax=ax)
+                st.pyplot(fig)
+            else:
+                bot_response = "The model has not been trained yet. Please train the model first by asking for a crop recommendation."
+                append_chat(user_input, bot_response)
 
         elif "top crops" in user_input.lower():
             top_crops = st.session_state["df"]['crop'].value_counts()
@@ -157,7 +182,7 @@ if "df" in st.session_state:
                 append_chat(user_input, bot_response)
 
         else:
-            bot_response = "I'm sorry, I didn't understand that. You can ask about data description, data summary, data analysis, top crops, soil types, correlations, or for a crop recommendation."
+            bot_response = "I'm sorry, I didn't understand that. You can ask about data description, data summary, data analysis, model accuracy, top crops, soil types, correlations, or for a crop recommendation."
             append_chat(user_input, bot_response)
 
     # Display Chat History
