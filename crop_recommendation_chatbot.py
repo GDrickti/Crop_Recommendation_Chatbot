@@ -5,9 +5,9 @@ import joblib
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder
-from sklearn.metrics import accuracy_score, classification_report
 import matplotlib.pyplot as plt
 import seaborn as sns
+from datetime import datetime
 
 st.title("Interactive Crop Recommendation Chatbot")
 
@@ -15,47 +15,37 @@ st.title("Interactive Crop Recommendation Chatbot")
 if "chat_history" not in st.session_state:
     st.session_state["chat_history"] = []
 
+# Function to append chat messages
+def append_chat(user_message, bot_response):
+    st.session_state["chat_history"].append({"user": user_message, "bot": bot_response})
+
+# Dynamic Greeting
+current_hour = datetime.now().hour
+if 5 <= current_hour < 12:
+    greeting = "Good Morning"
+elif 12 <= current_hour < 18:
+    greeting = "Good Afternoon"
+else:
+    greeting = "Good Evening"
+
 # Step 1: Upload Your Dataset
 st.write("### Step 1: Upload Your Dataset")
-uploaded_file = st.file_uploader("Upload your agricultural CSV file (with features like soil type, temperature, humidity, crop)", type="csv", key="file_uploader")
+uploaded_file = st.file_uploader(
+    "Upload your agricultural CSV file (with features like soil type, temperature, crop)", 
+    type="csv", 
+    key="unique_uploader_key"
+)
 
 # Check if a file is uploaded and can be read
 if uploaded_file is not None:
     try:
         df = pd.read_csv(uploaded_file)
-        
-        # Verify the dataset has content and columns
         if df.empty:
             st.write("Uploaded file is empty. Please upload a valid CSV file.")
         else:
-            # Display dataset preview
+            st.session_state["df"] = df
             st.write("### Dataset Preview")
             st.write(df.head())
-
-            # Encode target variable if necessary
-            if 'crop' in df.columns:
-                label_encoder = LabelEncoder()
-                df['crop'] = label_encoder.fit_transform(df['crop'])
-                
-                # Save DataFrame in session state
-                st.session_state["df"] = df
-                st.session_state["label_encoder"] = label_encoder
-
-                # Dataset Analysis
-                st.write("### Data Analysis")
-                st.write("#### Crop Distribution")
-                crop_counts = df['crop'].value_counts()
-                fig, ax = plt.subplots()
-                sns.barplot(x=crop_counts.index, y=crop_counts.values, ax=ax)
-                ax.set_title("Crop Distribution")
-                st.pyplot(fig)
-
-                st.write("#### Feature Correlations")
-                fig, ax = plt.subplots()
-                sns.heatmap(df.corr(), annot=True, cmap="coolwarm", ax=ax)
-                st.pyplot(fig)
-            else:
-                st.write("Your dataset must include a 'crop' column as the target variable.")
     except Exception as e:
         st.write(f"Error reading file: {e}. Please upload a valid CSV.")
 else:
@@ -63,57 +53,86 @@ else:
 
 # Chat Interface
 if "df" in st.session_state:
-    # Function to append chat messages
-    def append_chat(user_message, bot_response):
-        st.session_state["chat_history"].append({"user": user_message, "bot": bot_response})
-
     user_input = st.text_input("You:", key="user_input")
 
-    # Chatbot Responses
     if user_input:
         if "hello" in user_input.lower():
-            bot_response = "Hello! Your dataset is loaded. You can ask me to recommend a crop or explore data insights."
+            bot_response = f"{greeting}! Your dataset is loaded. How can I assist you? You can ask for crop recommendations or data insights."
             append_chat(user_input, bot_response)
 
-        elif "recommend" in user_input.lower() or "crop" in user_input.lower():
-            df = st.session_state["df"]
-            label_encoder = st.session_state["label_encoder"]
+        elif "recommend" in user_input.lower():
+            # Extract features and target
+            feature_columns = [col for col in st.session_state["df"].columns if col != 'crop']
+            categorical_cols = st.session_state["df"].select_dtypes(include=['object']).columns.tolist()
+            df_encoded = pd.get_dummies(st.session_state["df"], columns=categorical_cols, drop_first=True)
+            X = df_encoded.drop('crop', axis=1, errors='ignore')
+            y = st.session_state["df"]['crop']
 
-            # Separate features and target
-            feature_columns = [col for col in df.columns if col != 'crop']
-            X = df[feature_columns]
-            y = df['crop']
+            label_encoder = LabelEncoder()
+            y_encoded = label_encoder.fit_transform(y)
 
-            # Train a model
-            X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+            # Train model
+            X_train, X_test, y_train, y_test = train_test_split(X, y_encoded, test_size=0.2, random_state=42)
             model = RandomForestClassifier()
             model.fit(X_train, y_train)
             joblib.dump(model, 'user_crop_model.pkl')
 
-            # Model performance
-            y_pred = model.predict(X_test)
-            accuracy = accuracy_score(y_test, y_pred)
-            st.write(f"### Model Accuracy: {accuracy:.2f}")
-            st.write("#### Classification Report")
-            st.text(classification_report(y_test, y_pred, target_names=label_encoder.classes_))
+            bot_response = "Model trained successfully! Enter feature values for prediction."
+            append_chat(user_input, bot_response)
 
-            # Filter out one-hot encoded crop columns from the feature list
-            relevant_features = [col for col in feature_columns if not col.startswith("crop_")]
-
-            # Input values for prediction, only showing relevant features
+            # Input values for prediction
             input_data = {}
-            for col in relevant_features:
+            for col in X.columns:
                 input_data[col] = st.number_input(f"Enter {col} value", float(X[col].min()), float(X[col].max()))
 
-            # Get Prediction
             if st.button("Get Recommendation"):
                 input_df = pd.DataFrame([input_data])
                 prediction_encoded = model.predict(input_df)
                 prediction = label_encoder.inverse_transform(prediction_encoded)
                 bot_response = f"Recommended Crop: {prediction[0]}"
+                append_chat("Prediction Input Submitted", bot_response)
+
+        elif "top crops" in user_input.lower():
+            top_crops = st.session_state["df"]['crop'].value_counts()
+            bot_response = f"The top crops are:\n{top_crops}"
+            append_chat(user_input, bot_response)
+            st.write("### Crop Distribution")
+            st.bar_chart(top_crops)
+
+        elif "soil types" in user_input.lower():
+            if 'soil type' in st.session_state["df"].columns:
+                soil_types = st.session_state["df"]['soil type'].value_counts()
+                bot_response = f"The most common soil types are:\n{soil_types}"
                 append_chat(user_input, bot_response)
+                st.write("### Soil Type Distribution")
+                st.bar_chart(soil_types)
+            else:
+                bot_response = "The dataset does not contain a 'soil type' column."
+                append_chat(user_input, bot_response)
+
+        elif "correlation" in user_input.lower():
+            numerical_cols = st.session_state["df"].select_dtypes(include=['number']).columns.tolist()
+            if numerical_cols:
+                correlation_matrix = st.session_state["df"][numerical_cols].corr()
+                bot_response = "Here's the correlation heatmap of numerical features."
+                append_chat(user_input, bot_response)
+                st.write("### Correlation Heatmap")
+                plt.figure(figsize=(12, 8))
+                sns.heatmap(correlation_matrix, annot=True, fmt=".2f", cmap="coolwarm")
+                plt.title('Correlation Matrix')
+                st.pyplot(plt)
+            else:
+                bot_response = "There are no numerical features to compute correlations."
+                append_chat(user_input, bot_response)
+
+        elif "data summary" in user_input.lower():
+            bot_response = "Here's the summary of the dataset."
+            append_chat(user_input, bot_response)
+            st.write("### Dataset Summary")
+            st.write(st.session_state["df"].describe(include='all'))
+
         else:
-            bot_response = "Please ask for a crop recommendation or say 'hello' to start."
+            bot_response = "I'm sorry, I didn't understand that. You can ask about top crops, soil types, correlations, or for a crop recommendation."
             append_chat(user_input, bot_response)
 
     # Display Chat History
