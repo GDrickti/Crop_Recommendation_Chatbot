@@ -10,7 +10,7 @@ import seaborn as sns
 from datetime import datetime
 from sklearn.metrics import accuracy_score, ConfusionMatrixDisplay
 
-st.title("Interactive Crop Recommendation Chatbot")
+st.title("Interactive Crop Recommendation Chatbot:AGRINEXUS")
 
 # Chat History
 if "chat_history" not in st.session_state:
